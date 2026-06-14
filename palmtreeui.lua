@@ -1,4 +1,4 @@
-```lua
+
 -- ============================================
 -- 🌴 PALMTREE.LUA v10 — FRAMEWORK EDITION
 -- Festival Identity • Theme Engine • Complete API
