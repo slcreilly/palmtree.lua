@@ -1,6 +1,6 @@
 -- ============================================
--- 🌴 PALMTREE.LUA v7.2 - WEST COAST FEST
--- Dropdowns Fixed + New Color Scheme
+-- 🌴 PALMTREE.LUA v8 - WEST COAST FEST
+-- Dropdowns Fixed, Stepped Dynamic Gradient
 -- ============================================
 
 local Library = {}
@@ -13,38 +13,38 @@ local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local Stats = game:GetService("Stats")
 
--- WEST COAST FEST COLOR PALETTE
--- Gradient: rgba(228, 47, 155) → rgba(28, 6, 60)
+-- West Coast Fest Colors
 local Colors = {
-    -- Main gradient colors
     FestPink = Color3.fromRGB(228, 47, 155),
     FestDeep = Color3.fromRGB(28, 6, 60),
     FestMid = Color3.fromRGB(128, 26, 107),
     
-    -- Accents
     NeonPink = Color3.fromRGB(255, 60, 170),
-    HotPink = Color3.fromRGB(255, 20, 130),
-    LightPink = Color3.fromRGB(255, 140, 200),
     Cyan = Color3.fromRGB(0, 230, 250),
-    Purple = Color3.fromRGB(160, 50, 220),
     
-    -- Text
     White = Color3.fromRGB(255, 255, 255),
     TextBright = Color3.fromRGB(255, 240, 255),
     TextSoft = Color3.fromRGB(230, 200, 235),
     TextMuted = Color3.fromRGB(180, 150, 195),
     
-    -- UI Elements
     ToggleOff = Color3.fromRGB(50, 20, 70),
     SliderTrack = Color3.fromRGB(40, 15, 60),
     InputBg = Color3.fromRGB(30, 10, 50),
     ContainerBg = Color3.fromRGB(25, 8, 45),
     ContainerHover = Color3.fromRGB(40, 15, 60),
     
-    -- Status
     Green = Color3.fromRGB(100, 255, 150),
     Gold = Color3.fromRGB(255, 210, 70),
     Red = Color3.fromRGB(255, 60, 80),
+}
+
+-- Stepped gradient keyframes
+local GradientSteps = {
+    {Color3.fromRGB(228, 47, 155), Color3.fromRGB(28, 6, 60)},     -- Pink → Deep Purple
+    {Color3.fromRGB(200, 40, 140), Color3.fromRGB(35, 10, 65)},     -- Slightly muted
+    {Color3.fromRGB(240, 50, 160), Color3.fromRGB(25, 8, 55)},      -- Brighter pink
+    {Color3.fromRGB(180, 35, 130), Color3.fromRGB(30, 12, 70)},     -- More purple
+    {Color3.fromRGB(220, 45, 150), Color3.fromRGB(28, 6, 60)},      -- Back to start
 }
 
 local FONT = {
@@ -98,7 +98,7 @@ function Library:CreateWindow(title)
         ResetOnSpawn = false, Enabled = true,
     })
     
-    -- Notification holder (HIGHEST ZINDEX)
+    -- Notifications
     local NotifHolder = create("Frame", {
         Parent = ScreenGui, BackgroundTransparency = 1,
         AnchorPoint = Vector2.new(1, 1),
@@ -122,18 +122,15 @@ function Library:CreateWindow(title)
         })
         create("UICorner", {CornerRadius = UDim.new(0, 5), Parent = notif})
         create("UIStroke", {Parent = notif, Color = cols[ntype] or Colors.FestPink, Transparency = 0.2, Thickness = 1.5})
-        
         create("Frame", {
             Parent = notif, BackgroundColor3 = cols[ntype] or Colors.FestPink,
-            BorderSizePixel = 0, Position = UDim2.new(0, 0, 0, 0),
-            Size = UDim2.new(0, 3, 1, 0),
+            BorderSizePixel = 0, Position = UDim2.new(0, 0, 0, 0), Size = UDim2.new(0, 3, 1, 0),
         })
-        
-        local icon = ntype == "success" and "✓" or ntype == "warning" and "⚠" or "ℹ"
         create("TextLabel", {
             Parent = notif, BackgroundTransparency = 1,
             Position = UDim2.new(0.08, 0, 0, 0), Size = UDim2.new(0, 16, 1, 0),
-            Font = FONT.Body, Text = icon, TextColor3 = cols[ntype] or Colors.FestPink, TextSize = 10, ZIndex = 100,
+            Font = FONT.Body, Text = ntype == "success" and "✓" or ntype == "warning" and "⚠" or "ℹ",
+            TextColor3 = cols[ntype] or Colors.FestPink, TextSize = 10, ZIndex = 100,
         })
         create("TextLabel", {
             Parent = notif, BackgroundTransparency = 1,
@@ -141,7 +138,6 @@ function Library:CreateWindow(title)
             Font = FONT.Text, Text = text, TextColor3 = Colors.TextBright,
             TextSize = 8, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 100,
         })
-        
         Tween(notif, {BackgroundTransparency = 0}, 0.2)
         task.delay(2.5, function()
             if notif and notif.Parent then
@@ -152,7 +148,7 @@ function Library:CreateWindow(title)
         end)
     end
     
-    -- ===== MAIN WINDOW =====
+    -- Main window
     local Main = create("Frame", {
         Parent = ScreenGui,
         Position = UDim2.new(0.5, -260, 0.5, -160),
@@ -161,43 +157,50 @@ function Library:CreateWindow(title)
         BorderSizePixel = 0,
     })
     create("UICorner", {CornerRadius = UDim.new(0, 10), Parent = Main})
+    create("UIStroke", {Parent = Main, Color = Colors.FestPink, Transparency = 0.4, Thickness = 2})
     
-    -- GLOW BORDER
-    create("UIStroke", {
-        Parent = Main, Color = Colors.FestPink,
-        Transparency = 0.4, Thickness = 2,
-    })
-    
-    -- FEST GRADIENT: rgba(228,47,155) → rgba(28,6,60)
+    -- STEPPED DYNAMIC GRADIENT
     local BgGradient = create("UIGradient", {
         Parent = Main,
         Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(228, 47, 155)),   -- Top: fest pink
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(28, 6, 60)),       -- Bottom: deep purple
+            ColorSequenceKeypoint.new(0, GradientSteps[1][1]),
+            ColorSequenceKeypoint.new(1, GradientSteps[1][2]),
         }),
         Rotation = 180,
     })
     
-    -- Animate gradient subtly
-    local alpha = 0
+    local currentStep = 1
+    local nextStep = 2
+    local stepProgress = 0
+    
     coroutine.wrap(function()
         while BgGradient and BgGradient.Parent do
-            alpha = alpha + 0.003
-            local pulse = math.sin(alpha) * 0.1 + 0.9
+            local from = GradientSteps[currentStep]
+            local to = GradientSteps[nextStep]
+            
+            stepProgress = stepProgress + 0.004
+            
+            if stepProgress >= 1 then
+                stepProgress = 0
+                currentStep = nextStep
+                nextStep = nextStep % #GradientSteps + 1
+                from = GradientSteps[currentStep]
+                to = GradientSteps[nextStep]
+            end
+            
+            local topColor = from[1]:Lerp(to[1], stepProgress)
+            local bottomColor = from[2]:Lerp(to[2], stepProgress)
+            
             BgGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(228, 47, 155)),
-                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(
-                    128 + math.sin(alpha * 2) * 30,
-                    26 + math.sin(alpha) * 10,
-                    107 + math.cos(alpha) * 20
-                )),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(28, 6, 60)),
+                ColorSequenceKeypoint.new(0, topColor),
+                ColorSequenceKeypoint.new(1, bottomColor),
             })
+            
             RunService.Heartbeat:Wait()
         end
     end)()
     
-    -- ===== HEADER =====
+    -- Header
     local Header = create("Frame", {
         Parent = Main, BackgroundColor3 = Color3.fromRGB(20, 4, 45),
         BackgroundTransparency = 0.2, Size = UDim2.new(1, 0, 0, 30),
@@ -263,7 +266,7 @@ function Library:CreateWindow(title)
     
     MakeDraggable(Main, Header)
     
-    -- ===== CONTENT AREA =====
+    -- Content area
     ContentArea = create("Frame", {
         Parent = Main, BackgroundTransparency = 1,
         Position = UDim2.new(0, 0, 0.094, 0),
@@ -271,7 +274,7 @@ function Library:CreateWindow(title)
         BorderSizePixel = 0,
     })
     
-    -- ===== LEFT SIDEBAR =====
+    -- Left sidebar
     local LeftSidebar = create("Frame", {
         Parent = ContentArea, BackgroundColor3 = Color3.fromRGB(20, 4, 40),
         BackgroundTransparency = 0.4, Position = UDim2.new(0, 0, 0, 0),
@@ -279,7 +282,6 @@ function Library:CreateWindow(title)
     })
     create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = LeftSidebar})
     create("UIStroke", {Parent = LeftSidebar, Color = Colors.FestPink, Transparency = 0.5, Thickness = 1.5})
-    
     create("UIListLayout", {
         Parent = LeftSidebar, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 3),
     })
@@ -287,7 +289,7 @@ function Library:CreateWindow(title)
         Parent = LeftSidebar, PaddingTop = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6),
     })
     
-    -- ===== CENTER SCROLLING =====
+    -- Center
     local Center = create("Frame", {
         Parent = ContentArea, BackgroundColor3 = Color3.fromRGB(20, 4, 40),
         BackgroundTransparency = 0.4, Position = UDim2.new(0.24, 0, 0, 0),
@@ -302,23 +304,16 @@ function Library:CreateWindow(title)
         ScrollBarThickness = 3, ScrollBarImageColor3 = Colors.FestPink,
         CanvasSize = UDim2.new(0, 0, 0, 0),
         ScrollingDirection = Enum.ScrollingDirection.Y,
-        ZIndex = 2,
     })
-    
     create("UIPadding", {
-        Parent = CenterScroll,
-        PaddingLeft = UDim.new(0, 4),
-        PaddingRight = UDim.new(0, 4),
-        PaddingTop = UDim.new(0, 4),
+        Parent = CenterScroll, PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4), PaddingTop = UDim.new(0, 4),
     })
     
-    -- Title bar
     local CenterTitleFrame = create("Frame", {
         Parent = CenterScroll, BackgroundColor3 = Colors.FestPink,
         BackgroundTransparency = 0.8, Size = UDim2.new(1, 0, 0, 20), BorderSizePixel = 0,
     })
     create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = CenterTitleFrame})
-    
     local CenterIcon = create("TextLabel", {
         Parent = CenterTitleFrame, BackgroundTransparency = 1,
         Position = UDim2.new(0.03, 0, 0, 0), Size = UDim2.new(0, 16, 1, 0),
@@ -331,11 +326,9 @@ function Library:CreateWindow(title)
         TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left,
     })
     
-    -- Content (HIGHER ZINDEX than title)
     local ScrollContent = create("Frame", {
         Parent = CenterScroll, BackgroundTransparency = 1,
         Size = UDim2.new(1, 0, 0, 0), BorderSizePixel = 0,
-        ZIndex = 3,
     })
     local ScrollContentList = create("UIListLayout", {
         Parent = ScrollContent, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 5),
@@ -346,7 +339,7 @@ function Library:CreateWindow(title)
         CenterScroll.CanvasSize = UDim2.new(0, 0, 0, ScrollContentList.AbsoluteContentSize.Y + 28)
     end
     
-    -- ===== RIGHT PANEL =====
+    -- Right panel
     local RightPanel = create("Frame", {
         Parent = ContentArea, BackgroundColor3 = Color3.fromRGB(20, 4, 40),
         BackgroundTransparency = 0.4, Position = UDim2.new(0.7, 0, 0, 0),
@@ -354,7 +347,6 @@ function Library:CreateWindow(title)
     })
     create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = RightPanel})
     create("UIStroke", {Parent = RightPanel, Color = Colors.FestPink, Transparency = 0.5, Thickness = 1.5})
-    
     create("UIListLayout", {
         Parent = RightPanel, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4),
     })
@@ -362,7 +354,6 @@ function Library:CreateWindow(title)
         Parent = RightPanel, PaddingTop = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6),
     })
     
-    -- Config header
     local ConfigHeader = create("Frame", {
         Parent = RightPanel, BackgroundColor3 = Colors.FestPink,
         BackgroundTransparency = 0.8, Size = UDim2.new(1, 0, 0, 20), BorderSizePixel = 0,
@@ -429,7 +420,6 @@ function Library:CreateWindow(title)
         for _, c in ipairs(ConfigListFrame:GetChildren()) do
             if c:IsA("Frame") then c:Destroy() end
         end
-        
         local configs = {}
         pcall(function()
             for _, file in ipairs(listfiles(ConfigFolder)) do
@@ -437,9 +427,7 @@ function Library:CreateWindow(title)
                 if name then table.insert(configs, name) end
             end
         end)
-        
         table.sort(configs)
-        
         for _, name in ipairs(configs) do
             local row = create("Frame", {
                 Parent = ConfigListFrame, BackgroundColor3 = Colors.ContainerBg,
@@ -481,7 +469,6 @@ function Library:CreateWindow(title)
                 SendNotification("Deleted: " .. name, "warning")
             end)
         end
-        
         ConfigListFrame.CanvasSize = UDim2.new(0, 0, 0, ConfigListLayout.AbsoluteContentSize.Y + 10)
     end
     
@@ -491,18 +478,13 @@ function Library:CreateWindow(title)
             SendNotification("Enter a config name!", "warning")
             return
         end
-        
         local data = {}
         for _, element in ipairs(allElements) do
-            if element.get then
-                data[element.id] = element.get()
-            end
+            if element.get then data[element.id] = element.get() end
         end
-        
         pcall(function()
             writefile(ConfigFolder .. "/" .. name .. ".json", HttpService:JSONEncode(data))
         end)
-        
         RefreshConfigList()
         SendNotification("Saved: " .. name, "success")
     end)
@@ -518,7 +500,7 @@ function Library:CreateWindow(title)
         end
     end)
     
-    -- ===== TAB SYSTEM =====
+    -- Tabs
     local Tabs = {}
     local allPages = {}
     local allButtons = {}
@@ -526,20 +508,10 @@ function Library:CreateWindow(title)
     local function SelectPage(page, button, icon, title)
         for _, p in ipairs(allPages) do p.Visible = false end
         for _, b in ipairs(allButtons) do
-            Tween(b, {
-                BackgroundColor3 = Colors.ContainerBg,
-                BackgroundTransparency = 0.3,
-                TextColor3 = Colors.TextMuted,
-            }, 0.15)
+            Tween(b, {BackgroundColor3 = Colors.ContainerBg, BackgroundTransparency = 0.3, TextColor3 = Colors.TextMuted}, 0.15)
         end
-        
         page.Visible = true
-        Tween(button, {
-            BackgroundColor3 = Colors.FestPink,
-            BackgroundTransparency = 0.1,
-            TextColor3 = Colors.White,
-        }, 0.15)
-        
+        Tween(button, {BackgroundColor3 = Colors.FestPink, BackgroundTransparency = 0.1, TextColor3 = Colors.White}, 0.15)
         CenterIcon.Text = icon
         CenterTitle.Text = title
         UpdateScrollSize()
@@ -547,7 +519,6 @@ function Library:CreateWindow(title)
     
     function Tabs:CreateTab(name, icon)
         icon = icon or ""
-        
         local NavBtn = create("TextButton", {
             Parent = LeftSidebar, BackgroundColor3 = Colors.ContainerBg,
             BackgroundTransparency = 0.3, Size = UDim2.new(1, 0, 0, 24),
@@ -561,7 +532,6 @@ function Library:CreateWindow(title)
         local Page = create("Frame", {
             Parent = ScrollContent, BackgroundTransparency = 1,
             Size = UDim2.new(1, 0, 0, 0), Visible = false, BorderSizePixel = 0,
-            ZIndex = 4,
         })
         local PageList = create("UIListLayout", {
             Parent = Page, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2),
@@ -571,25 +541,21 @@ function Library:CreateWindow(title)
             Page.Size = UDim2.new(1, 0, 0, PageList.AbsoluteContentSize.Y)
             UpdateScrollSize()
         end
-        
         Page.ChildAdded:Connect(function() task.wait(0.03); ResizePage() end)
         Page.ChildRemoved:Connect(function() task.wait(0.03); ResizePage() end)
         
         table.insert(allPages, Page)
         table.insert(allButtons, NavBtn)
-        
         NavBtn.MouseButton1Click:Connect(function() SelectPage(Page, NavBtn, icon, name) end)
-        
         if #allPages == 1 then SelectPage(Page, NavBtn, icon, name) end
         
-        -- ===== SECTIONS =====
+        -- ===== SECTIONS (NO HEADERS) =====
         local Sections = {}
         
         function Sections:AddSection(name)
             local SectionFrame = create("Frame", {
                 Parent = Page, BackgroundTransparency = 1,
                 Size = UDim2.new(1, 0, 0, 0), BorderSizePixel = 0,
-                ZIndex = 5,
             })
             local SectionList = create("UIListLayout", {
                 Parent = SectionFrame, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2),
@@ -599,7 +565,6 @@ function Library:CreateWindow(title)
                 SectionFrame.Size = UDim2.new(1, 0, 0, SectionList.AbsoluteContentSize.Y)
                 ResizePage()
             end
-            
             SectionFrame.ChildAdded:Connect(function() task.wait(0.03); UpdateSectionSize() end)
             
             local Elements = {}
@@ -610,18 +575,11 @@ function Library:CreateWindow(title)
                     Parent = SectionFrame, BackgroundColor3 = Colors.ContainerBg,
                     BackgroundTransparency = 0.2, Size = UDim2.new(1, 0, 0, height),
                     AutoButtonColor = false, Text = "", BorderSizePixel = 0,
-                    ZIndex = 6,
                 })
                 create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = el})
                 create("UIStroke", {Parent = el, Color = Colors.FestPink, Transparency = 0.6, Thickness = 0.8})
-                
-                el.MouseEnter:Connect(function()
-                    Tween(el, {BackgroundColor3 = Colors.ContainerHover, BackgroundTransparency = 0.1}, 0.1)
-                end)
-                el.MouseLeave:Connect(function()
-                    Tween(el, {BackgroundColor3 = Colors.ContainerBg, BackgroundTransparency = 0.2}, 0.1)
-                end)
-                
+                el.MouseEnter:Connect(function() Tween(el, {BackgroundColor3 = Colors.ContainerHover, BackgroundTransparency = 0.1}, 0.1) end)
+                el.MouseLeave:Connect(function() Tween(el, {BackgroundColor3 = Colors.ContainerBg, BackgroundTransparency = 0.2}, 0.1) end)
                 return el
             end
             
@@ -630,7 +588,6 @@ function Library:CreateWindow(title)
                 default = default or false
                 local toggled = default
                 local btn = CreateElement()
-                
                 elementCounter = elementCounter + 1
                 local elementId = "toggle_" .. elementCounter
                 
@@ -639,13 +596,11 @@ function Library:CreateWindow(title)
                     Position = UDim2.new(0.06, 0, 0, 0), Size = UDim2.new(0.58, 0, 1, 0),
                     Font = FONT.Body, Text = name, TextColor3 = Colors.TextBright,
                     TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left,
-                    ZIndex = 7,
                 })
                 
                 local track = create("Frame", {
                     Parent = btn, BackgroundColor3 = Colors.ToggleOff, BorderSizePixel = 0,
                     Position = UDim2.new(0.76, 0, 0.5, -7), Size = UDim2.new(0, 30, 0, 14),
-                    ZIndex = 7,
                 })
                 create("UICorner", {CornerRadius = UDim.new(1, 0), Parent = track})
                 
@@ -653,7 +608,6 @@ function Library:CreateWindow(title)
                     Parent = track, BackgroundColor3 = Colors.White, BorderSizePixel = 0,
                     Position = default and UDim2.new(1, -12, 0.5, -5) or UDim2.new(0, 2, 0.5, -5),
                     Size = UDim2.new(0, 10, 0, 10),
-                    ZIndex = 8,
                 })
                 create("UICorner", {CornerRadius = UDim.new(1, 0), Parent = dot})
                 create("UIStroke", {Parent = dot, Color = Colors.FestPink, Thickness = 1.5})
@@ -668,12 +622,9 @@ function Library:CreateWindow(title)
                         Tween(dot, {Position = pos}, 0.25, Enum.EasingStyle.Back)
                         Tween(track, {BackgroundColor3 = state and Colors.FestPink or Colors.ToggleOff}, 0.15)
                     end
-                    if not instant then
-                        SendNotification(name .. ": " .. (state and "ON" or "OFF"), state and "success" or "info")
-                    end
+                    if not instant then SendNotification(name .. ": " .. (state and "ON" or "OFF"), state and "success" or "info") end
                     callback(state)
                 end
-                
                 if default then SetToggle(true, true) end
                 btn.MouseButton1Click:Connect(function() SetToggle(not toggled) end)
                 
@@ -681,7 +632,6 @@ function Library:CreateWindow(title)
                     id = elementId, get = function() return toggled end,
                     set = function(v) SetToggle(v, true) end,
                 })
-                
                 UpdateSectionSize()
                 return {SetState = function(s) SetToggle(s) end}
             end
@@ -692,7 +642,6 @@ function Library:CreateWindow(title)
                 default = math.clamp(default or min, min, max)
                 local btn = CreateElement(38)
                 local currentValue = default
-                
                 elementCounter = elementCounter + 1
                 local elementId = "slider_" .. elementCounter
                 
@@ -701,42 +650,31 @@ function Library:CreateWindow(title)
                     Position = UDim2.new(0.06, 0, 0.05, 0), Size = UDim2.new(0.5, 0, 0, 13),
                     Font = FONT.Body, Text = name, TextColor3 = Colors.TextBright,
                     TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left,
-                    ZIndex = 7,
                 })
-                
                 local valBox = create("Frame", {
                     Parent = btn, BackgroundColor3 = Colors.InputBg,
                     Position = UDim2.new(0.7, 0, 0.05, 0), Size = UDim2.new(0, 36, 0, 13), BorderSizePixel = 0,
-                    ZIndex = 7,
                 })
                 create("UICorner", {CornerRadius = UDim.new(0, 4), Parent = valBox})
                 create("UIStroke", {Parent = valBox, Color = Colors.FestPink, Transparency = 0.4, Thickness = 1})
-                
                 local valLabel = create("TextLabel", {
                     Parent = valBox, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0),
                     Font = FONT.Mono, Text = tostring(default), TextColor3 = Colors.FestPink, TextSize = 8,
-                    ZIndex = 8,
                 })
-                
                 local track = create("Frame", {
                     Parent = btn, BackgroundColor3 = Colors.SliderTrack, BorderSizePixel = 0,
                     Position = UDim2.new(0.06, 0, 0.6, 0), Size = UDim2.new(0.88, 0, 0, 4),
-                    ZIndex = 7,
                 })
                 create("UICorner", {CornerRadius = UDim.new(0, 2), Parent = track})
-                
                 local fill = create("Frame", {
                     Parent = track, BackgroundColor3 = Colors.FestPink, BorderSizePixel = 0,
                     Size = UDim2.new((default - min) / (max - min), 0, 1, 0),
-                    ZIndex = 7,
                 })
                 create("UICorner", {CornerRadius = UDim.new(0, 2), Parent = fill})
-                
                 local dot = create("Frame", {
                     Parent = fill, BackgroundColor3 = Colors.White, BorderSizePixel = 0,
                     AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0),
                     Size = UDim2.new(0, 11, 0, 11),
-                    ZIndex = 8,
                 })
                 create("UICorner", {CornerRadius = UDim.new(1, 0), Parent = dot})
                 create("UIStroke", {Parent = dot, Color = Colors.FestPink, Thickness = 2})
@@ -753,17 +691,14 @@ function Library:CreateWindow(title)
                     valLabel.Text = tostring(val)
                     if not instant then callback(val) end
                 end
-                
                 local function UpdateFromInput(inputX, fromDrag)
                     local relX = math.clamp(inputX - track.AbsolutePosition.X, 0, track.AbsoluteSize.X)
                     local val = math.floor(min + (max - min) * (relX / track.AbsoluteSize.X))
                     SetSliderValue(val)
                     if fromDrag and tick() - lastNotif > 1 then
-                        lastNotif = tick()
-                        SendNotification(name .. ": " .. val, "info")
+                        lastNotif = tick(); SendNotification(name .. ": " .. val, "info")
                     end
                 end
-                
                 track.InputBegan:Connect(function(inp)
                     if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
                         dragging = true; lastNotif = 0; UpdateFromInput(inp.Position.X, true)
@@ -785,16 +720,14 @@ function Library:CreateWindow(title)
                     id = elementId, get = function() return currentValue end,
                     set = function(v) SetSliderValue(v, true); callback(v) end,
                 })
-                
                 UpdateSectionSize()
                 return {SetValue = function(v) SetSliderValue(v) end}
             end
             
-            -- DROPDOWN (FIXED ZINDEX)
+            -- DROPDOWN (ZIndex fixed)
             function Elements:AddDropdown(name, options, callback)
                 callback = callback or function() end
                 local opened = false
-                
                 local dropFrame = create("Frame", {
                     Parent = SectionFrame, BackgroundTransparency = 1,
                     Size = UDim2.new(1, 0, 0, 26), BorderSizePixel = 0,
@@ -803,7 +736,6 @@ function Library:CreateWindow(title)
                 local dropList = create("UIListLayout", {
                     Parent = dropFrame, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2),
                 })
-                
                 local mainBtn = create("TextButton", {
                     Parent = dropFrame, BackgroundColor3 = Colors.ContainerBg,
                     BackgroundTransparency = 0.2, Size = UDim2.new(1, 0, 0, 26), AutoButtonColor = false,
@@ -813,7 +745,6 @@ function Library:CreateWindow(title)
                 })
                 create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = mainBtn})
                 create("UIStroke", {Parent = mainBtn, Color = Colors.FestPink, Transparency = 0.5, Thickness = 0.8})
-                
                 local arrow = create("TextLabel", {
                     Parent = mainBtn, BackgroundTransparency = 1,
                     Position = UDim2.new(0.85, 0, 0, 0), Size = UDim2.new(0, 18, 1, 0),
@@ -833,17 +764,10 @@ function Library:CreateWindow(title)
                     })
                     create("UICorner", {CornerRadius = UDim.new(0, 5), Parent = optBtn})
                     create("UIStroke", {Parent = optBtn, Color = Colors.FestPink, Transparency = 0.5, Thickness = 0.8})
-                    
-                    optBtn.MouseEnter:Connect(function()
-                        Tween(optBtn, {TextColor3 = Colors.White, BackgroundColor3 = Color3.fromRGB(50, 15, 70)}, 0.1)
-                    end)
-                    optBtn.MouseLeave:Connect(function()
-                        Tween(optBtn, {TextColor3 = Colors.TextSoft, BackgroundColor3 = Colors.InputBg}, 0.1)
-                    end)
-                    
+                    optBtn.MouseEnter:Connect(function() Tween(optBtn, {TextColor3 = Colors.White, BackgroundColor3 = Color3.fromRGB(50, 15, 70)}, 0.1) end)
+                    optBtn.MouseLeave:Connect(function() Tween(optBtn, {TextColor3 = Colors.TextSoft, BackgroundColor3 = Colors.InputBg}, 0.1) end)
                     optBtn.MouseButton1Click:Connect(function()
-                        mainBtn.Text = "  " .. opt
-                        callback(opt)
+                        mainBtn.Text = "  " .. opt; callback(opt)
                         SendNotification(name .. ": " .. opt, "info")
                         opened = false; arrow.Rotation = 0
                         for _, o in ipairs(optFrames) do o.Visible = false end
@@ -852,7 +776,6 @@ function Library:CreateWindow(title)
                     end)
                     table.insert(optFrames, optBtn)
                 end
-                
                 mainBtn.MouseButton1Click:Connect(function()
                     opened = not opened
                     if opened then
@@ -867,7 +790,6 @@ function Library:CreateWindow(title)
                     end
                     UpdateSectionSize()
                 end)
-                
                 UpdateSectionSize()
                 return {Refresh = function(newOpts)
                     for _, o in ipairs(optFrames) do o:Destroy() end
@@ -906,7 +828,6 @@ function Library:CreateWindow(title)
                     Position = UDim2.new(0.06, 0, 0, 0), Size = UDim2.new(0.3, 0, 1, 0),
                     Font = FONT.Body, Text = name, TextColor3 = Colors.TextBright,
                     TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left,
-                    ZIndex = 7,
                 })
                 local textBox = create("TextBox", {
                     Parent = btn, BackgroundColor3 = Colors.InputBg,
@@ -914,7 +835,6 @@ function Library:CreateWindow(title)
                     Font = FONT.Text, Text = default, TextColor3 = Colors.White,
                     PlaceholderColor3 = Colors.TextMuted, TextSize = 9,
                     ClearTextOnFocus = false, BorderSizePixel = 0,
-                    ZIndex = 7,
                 })
                 create("UICorner", {CornerRadius = UDim.new(0, 5), Parent = textBox})
                 create("UIStroke", {Parent = textBox, Color = Colors.FestPink, Transparency = 0.4, Thickness = 1})
@@ -931,13 +851,11 @@ function Library:CreateWindow(title)
                     Position = UDim2.new(0.06, 0, 0, 0), Size = UDim2.new(0.76, 0, 1, 0),
                     Font = FONT.Body, Text = name, TextColor3 = Colors.TextBright,
                     TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left,
-                    ZIndex = 7,
                 })
                 create("TextLabel", {
                     Parent = btn, BackgroundTransparency = 1,
                     Position = UDim2.new(0.85, 0, 0, 0), Size = UDim2.new(0, 16, 1, 0),
                     Font = FONT.Header, Text = "→", TextColor3 = Colors.FestPink, TextSize = 12,
-                    ZIndex = 7,
                 })
                 btn.MouseButton1Click:Connect(function()
                     Tween(btn, {BackgroundColor3 = Colors.FestPink, BackgroundTransparency = 0}, 0.05)
@@ -954,7 +872,6 @@ function Library:CreateWindow(title)
                 local lbl = create("Frame", {
                     Parent = SectionFrame, BackgroundColor3 = Colors.FestPink,
                     BackgroundTransparency = 0.75, Size = UDim2.new(1, 0, 0, 18), BorderSizePixel = 0,
-                    ZIndex = 7,
                 })
                 create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = lbl})
                 create("TextLabel", {
@@ -962,7 +879,6 @@ function Library:CreateWindow(title)
                     Position = UDim2.new(0.06, 0, 0, 0), Size = UDim2.new(0.94, 0, 1, 0),
                     Font = FONT.Header, Text = "  " .. text, TextColor3 = Colors.White,
                     TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left,
-                    ZIndex = 8,
                 })
                 UpdateSectionSize()
                 return {SetText = function(t) lbl.TextLabel.Text = "  " .. t end}
@@ -973,14 +889,12 @@ function Library:CreateWindow(title)
         return Sections
     end
     
-    -- Create Local tab
+    -- Local tab
     local LocalTab = Tabs:CreateTab("Local", "📋")
     local LocalSection = LocalTab:AddSection("Player Info")
-    
     local player = Players.LocalPlayer
     local char = player.Character
     local hum = char and char:FindFirstChild("Humanoid")
-    
     local infoPairs = {
         {"👤 Username", player.Name},
         {"🆔 UserId", player.UserId},
@@ -995,7 +909,6 @@ function Library:CreateWindow(title)
         {"❤️ Health", hum and tostring(math.floor(hum.Health)) or "N/A"},
         {"🔧 Executor", (identifyexecutor and identifyexecutor()) or "Unknown"},
     }
-    
     for _, pair in ipairs(infoPairs) do
         LocalSection:AddLabel(pair[1] .. ": " .. tostring(pair[2]))
     end
