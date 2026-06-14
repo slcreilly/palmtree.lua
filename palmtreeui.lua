@@ -819,7 +819,14 @@ function Library:CreateWindow(title)
                 create("UIStroke", {Parent = expandPanel, Color = ActiveTheme.Border, Transparency = 0.3, Thickness = 1})
                 
                 -- Create a proper gradient texture for the sat/val sheet
-                local satValImage = create("ImageLabel", {Parent = expandPanel, Position = UDim2.new(0.05, 0, 0.1, 0), Size = UDim2.new(0, 110, 0, 65), BorderSizePixel = 0, ZIndex = 26})
+                -- This exact code from your first message is what fixes the sheet:
+if satValImage:FindFirstChild("VerticalGrad") then satValImage.VerticalGrad:Destroy() end
+local vertGrad = create("UIGradient", {Parent = satValImage, Rotation = 90})
+vertGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+    ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))
+})
+
                 -- Create dynamic gradient texture
                 local satValGradient = create("UIGradient", {Parent = satValImage, Rotation = 0})
                 
