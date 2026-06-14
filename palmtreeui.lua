@@ -1,6 +1,6 @@
 -- ============================================
--- 🌴 PALMTREE.LUA v8 - WEST COAST FEST
--- Dropdowns Fixed, Stepped Dynamic Gradient
+-- 🌴 PALMTREE.LUA v8 
+-- Dropdowns Fixed
 -- ============================================
 
 local Library = {}
@@ -13,7 +13,7 @@ local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local Stats = game:GetService("Stats")
 
--- West Coast Fest Colors
+-- Colors
 local Colors = {
     FestPink = Color3.fromRGB(228, 47, 155),
     FestDeep = Color3.fromRGB(28, 6, 60),
@@ -896,18 +896,18 @@ function Library:CreateWindow(title)
     local char = player.Character
     local hum = char and char:FindFirstChild("Humanoid")
     local infoPairs = {
-        {"👤 Username", player.Name},
-        {"🆔 UserId", player.UserId},
-        {"📅 Account Age", player.AccountAge .. " days"},
-        {"🎮 Game", pcall(function() return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end) or "Unknown"},
-        {"📍 Place ID", game.PlaceId},
-        {"🖥️ Job ID", game.JobId},
-        {"⚡ Ping", tostring(math.floor(Stats.PerformanceStats.Ping:GetValue())) .. "ms"},
-        {"⏰ Time", os.date("%H:%M:%S")},
-        {"🏃 WalkSpeed", hum and tostring(hum.WalkSpeed) or "N/A"},
-        {"🦘 JumpPower", hum and tostring(hum.JumpPower) or "N/A"},
-        {"❤️ Health", hum and tostring(math.floor(hum.Health)) or "N/A"},
-        {"🔧 Executor", (identifyexecutor and identifyexecutor()) or "Unknown"},
+        {" Username", player.Name},
+        {" UserId", player.UserId},
+        {"Account Age", player.AccountAge .. " days"},
+        {" Game", pcall(function() return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end) or "Unknown"},
+        {" Place ID", game.PlaceId},
+        {" Job ID", game.JobId},
+        {" Ping", tostring(math.floor(Stats.PerformanceStats.Ping:GetValue())) .. "ms"},
+        {" Time", os.date("%H:%M:%S")},
+        {" WalkSpeed", hum and tostring(hum.WalkSpeed) or "N/A"},
+        {" JumpPower", hum and tostring(hum.JumpPower) or "N/A"},
+        {" Health", hum and tostring(math.floor(hum.Health)) or "N/A"},
+        {" Executor", (identifyexecutor and identifyexecutor()) or "Unknown"},
     }
     for _, pair in ipairs(infoPairs) do
         LocalSection:AddLabel(pair[1] .. ": " .. tostring(pair[2]))
