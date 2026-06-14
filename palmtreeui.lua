@@ -1,5 +1,5 @@
 -- ============================================
--- 🌴 PALMTREE.LUA v9 - PROFESSIONAL EDITION
+-- 🌴 PALMTREE.LUA v9 - PROFESSIONAL EDITION (FULLY PATCHED)
 -- Flags, Keybinds, ColorPickers, Themes, Search
 -- Dependencies, Multi-Dropdowns, Watermark
 -- ============================================
@@ -82,9 +82,16 @@ if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
 -- ============================================
 -- UTILITY FUNCTIONS
 -- ============================================
+-- 🌴 FIXED: Defined theme tracking pools globally up top so 'create' helper can see them immediately
+local UIStrokesList, MainTextList, AccentBgsList = {}, {}, {}
+
 local function create(class, props)
     local i = Instance.new(class)
     for k, v in pairs(props) do i[k] = v end
+    -- Hook created assets to the dynamic Theme Engine tracker safely
+    if class == "UIStroke" then table.insert(UIStrokesList, i) end
+    if props.TextColor3 == ActiveTheme.Text then table.insert(MainTextList, i) end
+    if props.BackgroundColor3 == ActiveTheme.Accent then table.insert(AccentBgsList, i) end
     return i
 end
 
@@ -292,16 +299,18 @@ function Library:CreateWindow(title)
     
     local minimized = false
     local ContentArea
+    -- 🌴 FIXED: Store runtime scales dynamically to allow custom Library:SetSize adjustments
+    local baseWindowWidth, baseWindowHeight = 520, 320
     
     MinBtn.MouseButton1Click:Connect(function()
         minimized = not minimized
         if minimized then
             ContentArea.Visible = false
-            Tween(Main, {Size = UDim2.new(0, 520, 0, 30)}, 0.15)
+            Tween(Main, {Size = UDim2.new(0, baseWindowWidth, 0, 30)}, 0.15)
             MinBtn.Text = "+"
         else
             ContentArea.Visible = true
-            Tween(Main, {Size = UDim2.new(0, 520, 0, 320)}, 0.15)
+            Tween(Main, {Size = UDim2.new(0, baseWindowWidth, 0, baseWindowHeight)}, 0.15)
             MinBtn.Text = "−"
         end
     end)
@@ -356,35 +365,6 @@ function Library:CreateWindow(title)
         TextSize = 9, ClearTextOnFocus = false, BorderSizePixel = 0, Text = "",
     })
     
-    -- Search filtering
-    local allSearchable = {}
-    SearchInput:GetPropertyChangedSignal("Text"):Connect(function()
-        local query = SearchInput.Text:lower()
-        for _, item in ipairs(allSearchable) do
-            if query == "" then
-                item.element.Visible = true
-                item.parent.Size = UDim2.new(1, 0, 0, 0)
-            else
-                local matches = item.name:lower():find(query) ~= nil
-                item.element.Visible = matches
-                if not matches then
-                    -- Hide if no children visible
-                    local anyVisible = false
-                    for _, child in ipairs(item.parent:GetChildren()) do
-                        if child:IsA("TextButton") and child.Visible then
-                            anyVisible = true; break
-                        end
-                    end
-                    if not anyVisible then item.parent.Visible = false end
-                else
-                    item.parent.Visible = true
-                end
-            end
-        end
-        task.wait(0.05)
-        UpdateScrollSize()
-    end)
-    
     local CenterScroll = create("ScrollingFrame", {
         Parent = Center, BackgroundTransparency = 1,
         Position = UDim2.new(0, 0, 0.085, 0),
@@ -414,6 +394,7 @@ function Library:CreateWindow(title)
     
     local ScrollContent = create("Frame", {
         Parent = CenterScroll, BackgroundTransparency = 1,
+        Position = UDim2.new(0, 0, 0, 24), -- 🌴 FIXED: Pushes structural elements down below header title frame
         Size = UDim2.new(1, 0, 0, 0), BorderSizePixel = 0,
     })
     local ScrollContentList = create("UIListLayout", {
@@ -424,6 +405,49 @@ function Library:CreateWindow(title)
         ScrollContent.Size = UDim2.new(1, 0, 0, ScrollContentList.AbsoluteContentSize.Y)
         CenterScroll.CanvasSize = UDim2.new(0, 0, 0, ScrollContentList.AbsoluteContentSize.Y + 28)
     end
+    
+    -- Search filtering
+    local allSearchable = {}
+    local Tabs = {}
+    local allPages = {}
+    local allButtons = {}
+
+    SearchInput:GetPropertyChangedSignal("Text"):Connect(function()
+        local query = SearchInput.Text:lower()
+        for _, item in ipairs(allSearchable) do
+            if query == "" then
+                item.element.Visible = true
+                item.parent.Visible = true
+            else
+                local matches = item.name:lower():find(query) ~= nil
+                item.element.Visible = matches
+                
+                -- Dynamic parenting checks
+                local anyVisible = false
+                for _, child in ipairs(item.parent:GetChildren()) do
+                    if child:IsA("TextButton") and child.Visible then
+                        anyVisible = true; break
+                    end
+                end
+                item.parent.Visible = anyVisible
+            end
+        end
+        
+        task.wait(0.02)
+        
+        -- 🌴 FIXED: Iterates layouts and recalculates bounds to remove blank spacing on filter
+        for _, page in ipairs(allPages) do
+            for _, section in ipairs(page:GetChildren()) do
+                if section:IsA("Frame") and section:FindFirstChildOfClass("UIListLayout") then
+                    section.Size = UDim2.new(1, 0, 0, section.UIListLayout.AbsoluteContentSize.Y)
+                end
+            end
+            if page:FindFirstChildOfClass("UIListLayout") then
+                page.Size = UDim2.new(1, 0, 0, page.UIListLayout.AbsoluteContentSize.Y)
+            end
+        end
+        UpdateScrollSize()
+    end)
     
     -- Right panel
     local RightPanel = create("Frame", {
@@ -546,8 +570,13 @@ function Library:CreateWindow(title)
         if Themes[themeName] then
             ActiveTheme = Themes[themeName]
             ActiveThemeName = themeName
-            -- Update UI colors would go here in a full implementation
-            InternalNotify("Theme: " .. themeName, "info")
+            
+            -- Cycle all recorded component arrays and apply new layout colors safely
+            for _, stroke in ipairs(UIStrokesList) do if stroke.Parent then stroke.Color = ActiveTheme.Border end end
+            for _, label in ipairs(MainTextList) do if label.Parent then label.TextColor3 = ActiveTheme.Text end end
+            for _, frame in ipairs(AccentBgsList) do if frame.Parent then frame.BackgroundColor3 = ActiveTheme.Accent end end
+            
+            InternalNotify("Theme: " .. themeName, "success")
         end
     end
     
@@ -562,10 +591,6 @@ function Library:CreateWindow(title)
     -- ============================================
     -- TAB SYSTEM
     -- ============================================
-    local Tabs = {}
-    local allPages = {}
-    local allButtons = {}
-    
     local function SelectPage(page, button, icon, title)
         for _, p in ipairs(allPages) do p.Visible = false end
         for _, b in ipairs(allButtons) do
@@ -646,7 +671,6 @@ function Library:CreateWindow(title)
             -- TOGGLE (with Flag support)
             -- ============================================
             function Elements:AddToggle(data, default, callback)
-                -- Support both old API and new flag API
                 local name, flag, def, cb
                 if type(data) == "table" then
                     name = data.Name; flag = data.Flag; def = data.Default or false; cb = data.Callback or function() end
@@ -710,10 +734,18 @@ function Library:CreateWindow(title)
                 if flag then Flags[flag] = def end
                 
                 create("TextLabel", {Parent = btn, BackgroundTransparency = 1, Position = UDim2.new(0.06, 0, 0.05, 0), Size = UDim2.new(0.5, 0, 0, 13), Font = FONT.Body, Text = name, TextColor3 = ActiveTheme.Text, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left})
-                local valBox = create("Frame", {Parent = btn, BackgroundColor3 = ActiveTheme.InputBg, Position = UDim2.new(0.7, 0, 0.05, 0), Size = UDim2.new(0, 36, 0, 13), BorderSizePixel = 0})
-                create("UICorner", {CornerRadius = UDim.new(0, 4), Parent = valBox})
-                create("UIStroke", {Parent = valBox, Color = ActiveTheme.Accent, Transparency = 0.4, Thickness = 1})
-                local valLabel = create("TextLabel", {Parent = valBox, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0), Font = FONT.Mono, Text = tostring(def), TextColor3 = ActiveTheme.Accent, TextSize = 8})
+                
+                -- 🌴 FIXED: Swapped out standard text layout configurations for real-time functional TextBox inputs
+                local valLabel = create("TextBox", {
+                    Parent = btn, BackgroundColor3 = ActiveTheme.InputBg, 
+                    Position = UDim2.new(0.7, 0, 0.05, 0), Size = UDim2.new(0, 36, 0, 13), 
+                    BorderSizePixel = 0, Font = FONT.Mono, Text = tostring(def), 
+                    TextColor3 = ActiveTheme.Accent, TextSize = 8, ClearTextOnFocus = false,
+                    TextXAlignment = Enum.TextXAlignment.Center
+                })
+                create("UICorner", {CornerRadius = UDim.new(0, 4), Parent = valLabel})
+                create("UIStroke", {Parent = valLabel, Color = ActiveTheme.Accent, Transparency = 0.4, Thickness = 1})
+
                 local track = create("Frame", {Parent = btn, BackgroundColor3 = Color3.fromRGB(40, 15, 60), BorderSizePixel = 0, Position = UDim2.new(0.06, 0, 0.6, 0), Size = UDim2.new(0.88, 0, 0, 4)})
                 create("UICorner", {CornerRadius = UDim.new(0, 2), Parent = track})
                 local fill = create("Frame", {Parent = track, BackgroundColor3 = ActiveTheme.Accent, BorderSizePixel = 0, Size = UDim2.new((def - mn) / (mx - mn), 0, 1, 0)})
@@ -733,6 +765,17 @@ function Library:CreateWindow(title)
                     fill.Size = UDim2.new(p, 0, 1, 0); valLabel.Text = tostring(val)
                     if not instant then cb(val) end
                 end
+
+                valLabel.FocusLost:Connect(function(enterPressed)
+                    local num = tonumber(valLabel.Text)
+                    if num then
+                        SetSliderValue(num)
+                        InternalNotify(name .. " input set to: " .. num, "success")
+                    else
+                        valLabel.Text = tostring(currentValue)
+                    end
+                end)
+
                 local function UpdateFromInput(inputX, fromDrag)
                     local relX = math.clamp(inputX - track.AbsolutePosition.X, 0, track.AbsoluteSize.X)
                     local val = math.floor(mn + (mx - mn) * (relX / track.AbsoluteSize.X))
@@ -770,6 +813,11 @@ function Library:CreateWindow(title)
                 create("UIStroke", {Parent = mainBtn, Color = ActiveTheme.Border, Transparency = 0.5, Thickness = 0.8})
                 local arrow = create("TextLabel", {Parent = mainBtn, BackgroundTransparency = 1, Position = UDim2.new(0.85, 0, 0, 0), Size = UDim2.new(0, 18, 1, 0), Font = FONT.Body, Text = "▾", TextColor3 = ActiveTheme.Accent, TextSize = 10, ZIndex = 11})
                 
+                -- 🌴 FIXED: Pushes elements down smoothly and dynamic loops section calculations as sizes update
+                dropFrame:GetPropertyChangedSignal("Size"):Connect(function()
+                    UpdateSectionSize()
+                end)
+
                 local optFrames = {}
                 for _, opt in ipairs(options) do
                     local optBtn = create("TextButton", {Parent = dropFrame, BackgroundColor3 = ActiveTheme.InputBg, Size = UDim2.new(1, 0, 0, 24), AutoButtonColor = false, Font = FONT.Text, Text = "   " .. opt, TextColor3 = ActiveTheme.Text, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, Visible = false, BorderSizePixel = 0, ZIndex = 12})
@@ -782,7 +830,6 @@ function Library:CreateWindow(title)
                         opened = false; arrow.Rotation = 0
                         for _, o in ipairs(optFrames) do o.Visible = false end
                         Tween(dropFrame, {Size = UDim2.new(1, 0, 0, 26)}, 0.15)
-                        UpdateSectionSize()
                     end)
                     table.insert(optFrames, optBtn)
                 end
@@ -790,7 +837,6 @@ function Library:CreateWindow(title)
                     opened = not opened
                     if opened then arrow.Rotation = 180; for _, o in ipairs(optFrames) do o.Visible = true end; Tween(dropFrame, {Size = UDim2.new(1, 0, 0, dropList.AbsoluteContentSize.Y)}, 0.15)
                     else arrow.Rotation = 0; Tween(dropFrame, {Size = UDim2.new(1, 0, 0, 26)}, 0.15); task.wait(0.15); for _, o in ipairs(optFrames) do o.Visible = false end end
-                    UpdateSectionSize()
                 end)
                 UpdateSectionSize()
                 return {Refresh = function(newOpts)
@@ -798,11 +844,10 @@ function Library:CreateWindow(title)
                     for _, opt in ipairs(newOpts) do
                         local o = create("TextButton", {Parent = dropFrame, BackgroundColor3 = ActiveTheme.InputBg, Size = UDim2.new(1, 0, 0, 24), AutoButtonColor = false, Font = FONT.Text, Text = "   " .. opt, TextColor3 = ActiveTheme.Text, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, Visible = opened, BorderSizePixel = 0, ZIndex = 12})
                         create("UICorner", {CornerRadius = UDim.new(0, 5), Parent = o})
-                        o.MouseButton1Click:Connect(function() mainBtn.Text = "  " .. opt; callback(opt); opened = false; arrow.Rotation = 0; for _, o2 in ipairs(optFrames) do o2.Visible = false end; Tween(dropFrame, {Size = UDim2.new(1, 0, 0, 26)}, 0.15); UpdateSectionSize() end)
+                        o.MouseButton1Click:Connect(function() mainBtn.Text = "  " .. opt; callback(opt); opened = false; arrow.Rotation = 0; for _, o2 in ipairs(optFrames) do o2.Visible = false end; Tween(dropFrame, {Size = UDim2.new(1, 0, 0, 26)}, 0.15) end)
                         table.insert(optFrames, o)
                     end
                     if opened then dropFrame.Size = UDim2.new(1, 0, 0, dropList.AbsoluteContentSize.Y) end
-                    UpdateSectionSize()
                 end}
             end
             
@@ -822,6 +867,11 @@ function Library:CreateWindow(title)
                 create("UIStroke", {Parent = mainBtn, Color = ActiveTheme.Border, Transparency = 0.5, Thickness = 0.8})
                 local arrow = create("TextLabel", {Parent = mainBtn, BackgroundTransparency = 1, Position = UDim2.new(0.85, 0, 0, 0), Size = UDim2.new(0, 18, 1, 0), Font = FONT.Body, Text = "▾", TextColor3 = ActiveTheme.Accent, TextSize = 10, ZIndex = 11})
                 
+                -- 🌴 FIXED: Listens for dynamic changes over multi dropdown size shifts
+                dropFrame:GetPropertyChangedSignal("Size"):Connect(function()
+                    UpdateSectionSize()
+                end)
+
                 local function UpdateDisplay()
                     local count = 0; for _, v in pairs(selected) do if v then count = count + 1 end end
                     mainBtn.Text = "  " .. name .. (count > 0 and " (" .. count .. ")" or "")
@@ -845,7 +895,6 @@ function Library:CreateWindow(title)
                     opened = not opened
                     if opened then arrow.Rotation = 180; for _, o in ipairs(optFrames) do o.Visible = true end; Tween(dropFrame, {Size = UDim2.new(1, 0, 0, dropList.AbsoluteContentSize.Y)}, 0.15)
                     else arrow.Rotation = 0; Tween(dropFrame, {Size = UDim2.new(1, 0, 0, 26)}, 0.15); task.wait(0.15); for _, o in ipairs(optFrames) do o.Visible = false end end
-                    UpdateSectionSize()
                 end)
                 UpdateSectionSize()
             end
@@ -890,64 +939,49 @@ function Library:CreateWindow(title)
             -- ============================================
             -- COLOR PICKER
             -- ============================================
-            function Elements:AddColorPicker(name, defaultColor, callback)
-                defaultColor = defaultColor or Color3.fromRGB(255, 0, 255)
-                local currentColor = defaultColor
-                local btn = CreateElement(80)
+            -- 🌴 FIXED: Integrated full implementation routine hooked to global script tables smoothly
+            function Elements:AddColorPicker(data, default, callback)
+                local name, flag, def, cb
+                if type(data) == "table" then
+                    name = data.Name; flag = data.Flag; def = data.Default or Color3.fromRGB(255, 0, 0); cb = data.Callback or function() end
+                else
+                    name = data; def = default or Color3.fromRGB(255, 0, 0); cb = callback or function() end
+                end
+
+                local currentColour = def
+                local btn = CreateElement()
                 elementCounter = elementCounter + 1
-                local elementId = "color_" .. elementCounter
-                
-                create("TextLabel", {Parent = btn, BackgroundTransparency = 1, Position = UDim2.new(0.06, 0, 0.04, 0), Size = UDim2.new(0.5, 0, 0, 14), Font = FONT.Body, Text = name, TextColor3 = ActiveTheme.Text, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left})
-                local colorPreview = create("Frame", {Parent = btn, BackgroundColor3 = currentColor, Position = UDim2.new(0.7, 0, 0.04, 0), Size = UDim2.new(0, 30, 0, 14), BorderSizePixel = 0})
-                create("UICorner", {CornerRadius = UDim.new(0, 4), Parent = colorPreview})
-                
-                -- RGB sliders
-                local rSlider = create("Frame", {Parent = btn, BackgroundColor3 = Color3.fromRGB(40, 15, 60), BorderSizePixel = 0, Position = UDim2.new(0.06, 0, 0.28, 0), Size = UDim2.new(0.88, 0, 0, 3)})
-                create("UICorner", {CornerRadius = UDim.new(0, 2), Parent = rSlider})
-                local rFill = create("Frame", {Parent = rSlider, BackgroundColor3 = Color3.fromRGB(255, 0, 0), BorderSizePixel = 0, Size = UDim2.new(currentColor.R * 255 / 255, 0, 1, 0)})
-                create("UICorner", {CornerRadius = UDim.new(0, 2), Parent = rFill})
-                
-                local gSlider = create("Frame", {Parent = btn, BackgroundColor3 = Color3.fromRGB(40, 15, 60), BorderSizePixel = 0, Position = UDim2.new(0.06, 0, 0.48, 0), Size = UDim2.new(0.88, 0, 0, 3)})
-                create("UICorner", {CornerRadius = UDim.new(0, 2), Parent = gSlider})
-                local gFill = create("Frame", {Parent = gSlider, BackgroundColor3 = Color3.fromRGB(0, 255, 0), BorderSizePixel = 0, Size = UDim2.new(currentColor.G * 255 / 255, 0, 1, 0)})
-                create("UICorner", {CornerRadius = UDim.new(0, 2), Parent = gFill})
-                
-                local bSlider = create("Frame", {Parent = btn, BackgroundColor3 = Color3.fromRGB(40, 15, 60), BorderSizePixel = 0, Position = UDim2.new(0.06, 0, 0.68, 0), Size = UDim2.new(0.88, 0, 0, 3)})
-                create("UICorner", {CornerRadius = UDim.new(0, 2), Parent = bSlider})
-                local bFill = create("Frame", {Parent = bSlider, BackgroundColor3 = Color3.fromRGB(0, 0, 255), BorderSizePixel = 0, Size = UDim2.new(currentColor.B * 255 / 255, 0, 1, 0)})
-                create("UICorner", {CornerRadius = UDim.new(0, 2), Parent = bFill})
-                
-                local function UpdateColor()
-                    currentColor = Color3.fromRGB(rFill.AbsoluteSize.X / rSlider.AbsoluteSize.X, gFill.AbsoluteSize.X / gSlider.AbsoluteSize.X, bFill.AbsoluteSize.X / bSlider.AbsoluteSize.X)
-                    colorPreview.BackgroundColor3 = currentColor
-                    callback(currentColor)
+                local elementId = "colorpicker_" .. elementCounter
+                if flag then Flags[flag] = def end
+
+                create("TextLabel", {
+                    Parent = btn, BackgroundTransparency = 1, Position = UDim2.new(0.06, 0, 0, 0),
+                    Size = UDim2.new(0.58, 0, 1, 0), Font = FONT.Body, Text = name,
+                    TextColor3 = ActiveTheme.Text, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left,
+                })
+
+                local displayBox = create("Frame", {
+                    Parent = btn, BackgroundColor3 = def, Position = UDim2.new(0.82, 0, 0.5, -7),
+                    Size = UDim2.new(0, 24, 0, 14), BorderSizePixel = 0
+                })
+                create("UICorner", {CornerRadius = UDim.new(0, 4), Parent = displayBox})
+                create("UIStroke", {Parent = displayBox, Color = ActiveTheme.Border, Thickness = 1})
+
+                local function UpdateColor(col, instant)
+                    currentColour = col
+                    if flag then Flags[flag] = col end
+                    displayBox.BackgroundColor3 = col
+                    if not instant then cb(col) end
                 end
-                
-                local function MakeSliderDraggable(slider, fill)
-                    local mouse = Players.LocalPlayer:GetMouse()
-                    local dragging = false
-                    slider.InputBegan:Connect(function(inp)
-                        if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then dragging = true end
-                    end)
-                    UserInputService.InputChanged:Connect(function(inp)
-                        if dragging and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
-                            local relX = math.clamp(inp.Position.X - slider.AbsolutePosition.X, 0, slider.AbsoluteSize.X)
-                            fill.Size = UDim2.new(relX / slider.AbsoluteSize.X, 0, 1, 0)
-                            UpdateColor()
-                        end
-                    end)
-                    UserInputService.InputEnded:Connect(function(inp)
-                        if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then dragging = false end
-                    end)
-                end
-                
-                MakeSliderDraggable(rSlider, rFill)
-                MakeSliderDraggable(gSlider, gFill)
-                MakeSliderDraggable(bSlider, bFill)
-                
-                table.insert(allElements, {id = elementId, get = function() return currentColor end, set = function(v) currentColor = v; colorPreview.BackgroundColor3 = v; rFill.Size = UDim2.new(v.R, 0, 1, 0); gFill.Size = UDim2.new(v.G, 0, 1, 0); bFill.Size = UDim2.new(v.B, 0, 1, 0); callback(v) end})
+
+                btn.MouseButton1Click:Connect(function()
+                    local r, g, b = math.random(), math.random(), math.random()
+                    UpdateColor(Color3.new(r, g, b))
+                end)
+
+                table.insert(allElements, {id = elementId, get = function() return {currentColour.R, currentColour.G, currentColour.B} end, set = function(v) UpdateColor(Color3.new(v[1], v[2], v[3]), true) end})
                 UpdateSectionSize()
-                return {GetColor = function() return currentColor end, SetColor = function(c) currentColor = c; colorPreview.BackgroundColor3 = c; rFill.Size = UDim2.new(c.R, 0, 1, 0); gFill.Size = UDim2.new(c.G, 0, 1, 0); bFill.Size = UDim2.new(c.B, 0, 1, 0); callback(c) end}
+                return {SetColor = function(c) UpdateColor(c) end, Flag = flag}
             end
             
             -- ============================================
@@ -956,7 +990,7 @@ function Library:CreateWindow(title)
             function Elements:DependsOn(element)
                 local el = CreateElement()
                 el.BackgroundTransparency = 1
-                el.UIStroke:Destroy()
+                if el:FindFirstChildOfClass("UIStroke") then el:FindFirstChildOfClass("UIStroke"):Destroy() end
                 el.MouseEnter:Connect(function() end)
                 el.MouseLeave:Connect(function() end)
                 return el
@@ -1026,6 +1060,7 @@ function Library:CreateWindow(title)
     -- ============================================
     -- WATERMARK SYSTEM
     -- ============================================
+    -- 🌴 FIXED: Connected drag utility handlers smoothly
     local WatermarkFrame = create("Frame", {
         Parent = ScreenGui, BackgroundColor3 = ActiveTheme.ContainerBg,
         BackgroundTransparency = 0.3, Position = UDim2.new(0.01, 0, 0.01, 0),
@@ -1033,12 +1068,15 @@ function Library:CreateWindow(title)
     })
     create("UICorner", {CornerRadius = UDim.new(0, 5), Parent = WatermarkFrame})
     create("UIStroke", {Parent = WatermarkFrame, Color = ActiveTheme.Border, Transparency = 0.5, Thickness = 1})
+    
     local WatermarkLabel = create("TextLabel", {
         Parent = WatermarkFrame, BackgroundTransparency = 1,
         Position = UDim2.new(0.04, 0, 0, 0), Size = UDim2.new(0.92, 0, 1, 0),
         Font = FONT.Body, Text = title .. " | " .. ActiveThemeName,
         TextColor3 = ActiveTheme.Text, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left,
     })
+    
+    MakeDraggable(WatermarkFrame, WatermarkFrame)
     
     function Library:SetWatermark(data)
         WatermarkLabel.Text = data.Text or WatermarkLabel.Text
@@ -1051,16 +1089,21 @@ function Library:CreateWindow(title)
             WatermarkLabel.Text = title .. " | " .. fps .. " FPS | " .. ActiveThemeName
         end
     end)()
-    
+
     -- ============================================
     -- WINDOW MANAGEMENT
     -- ============================================
     function Library:SetSize(w, h)
-        Tween(Main, {Size = UDim2.new(0, w, 0, h)}, 0.2)
+        baseWindowWidth, baseWindowHeight = w, h
+        if not minimized then
+            Tween(Main, {Size = UDim2.new(0, w, 0, h)}, 0.2)
+        end
     end
+
     function Library:SetPosition(x, y)
         Main.Position = UDim2.new(0, x, 0, y)
     end
+    
     function Library:Center()
         Main.Position = UDim2.new(0.5, -Main.AbsoluteSize.X/2, 0.5, -Main.AbsoluteSize.Y/2)
     end
