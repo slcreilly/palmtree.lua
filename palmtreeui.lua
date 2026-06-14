@@ -1,18 +1,19 @@
--- ============================================
--- 🌴 PALMTREE UI MODULE
--- ============================================
+-- ============================================================
+-- 🌴 PALMTREE UI — FULL CORE ENGINE 
+-- ============================================================
 
 local Library = {}
 
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local Stats = game:GetService("Stats")
 
 local LocalPlayer = Players.LocalPlayer
-local SafeParent = LocalPlayer:WaitForChild("PlayerGui") 
+local SafeParent = CoreGui 
 
 local ActiveTheme = {
     Accent = Color3.fromRGB(255, 94, 91),
@@ -25,6 +26,9 @@ local ActiveTheme = {
     ToggleOff = Color3.fromRGB(50, 20, 70),
     SliderTrack = Color3.fromRGB(40, 15, 60),
 }
+
+local ConfigFolder = "PalmTree_Configs"
+if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
 
 local function Tween(obj, props, dur)
     return TweenService:Create(obj, TweenInfo.new(dur or 0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), props):Play()
@@ -60,21 +64,61 @@ function Library.CreateWindow(title)
     
     local TestFrame = Instance.new("Frame")
     TestFrame.Parent = ScreenGui
-    TestFrame.Size = UDim2.new(0, 500, 0, 300)
-    TestFrame.Position = UDim2.new(0.5, -250, 0.5, -150)
-    TestFrame.BackgroundColor3 = Color3.fromRGB(25, 8, 45)
+    TestFrame.Size = UDim2.new(0, 540, 0, 340)
+    TestFrame.Position = UDim2.new(0.5, -270, 0.5, -170)
+    TestFrame.BackgroundColor3 = ActiveTheme.ContainerBg
     TestFrame.BorderSizePixel = 0
-    TestFrame.ClipsDescendants = true
+    TestFrame.ClipsDescendants = false
     
     local TestCorner = Instance.new("UICorner")
     TestCorner.CornerRadius = UDim.new(0, 10)
     TestCorner.Parent = TestFrame
     
     local TestStroke = Instance.new("UIStroke")
-    TestStroke.Color = Color3.fromRGB(255, 0, 0)
+    TestStroke.Color = ActiveTheme.Border
     TestStroke.Thickness = 3
     TestStroke.Parent = TestFrame
     
+    -- ===== 📊 STATIC DRAGGABLE STATUS BAR WITH TRANSPARENT BACKGROUND =====
+    local StatusBar = Instance.new("Frame")
+    StatusBar.Parent = ScreenGui
+    StatusBar.Size = UDim2.new(0, 540, 0, 24)
+    StatusBar.Position = UDim2.new(0.5, -270, 0.5, 178)
+    StatusBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    StatusBar.BackgroundTransparency = 1
+    StatusBar.BorderSizePixel = 0
+    
+    local StatusCorner = Instance.new("UICorner")
+    StatusCorner.CornerRadius = UDim.new(0, 6)
+    StatusCorner.Parent = StatusBar
+    
+    local StatusStroke = Instance.new("UIStroke")
+    StatusStroke.Color = ActiveTheme.Border
+    StatusStroke.Thickness = 1.5
+    StatusStroke.Parent = StatusBar
+    
+    local StatusLabel = Instance.new("TextLabel")
+    StatusLabel.Parent = StatusBar
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.Position = UDim2.new(0, 10, 0, 0)
+    StatusLabel.Size = UDim2.new(1, -20, 1, 0)
+    StatusLabel.Font = Enum.Font.RobotoMono
+    StatusLabel.Text = "palmtree.lua | fps: -- | ms: --"
+    StatusLabel.TextColor3 = ActiveTheme.Text
+    StatusLabel.TextSize = 10
+    StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    MakeDraggable(StatusBar, StatusBar)
+    
+    local fpsCount = 0
+    RunService.RenderStepped:Connect(function(dt)
+        fpsCount = math.round(1 / dt)
+        local ping = math.round(Stats.PerformanceStats.Ping:GetValue())
+        StatusLabel.Text = string.format("palmtree.lua | fps: %d | ms: %d", fpsCount, ping)
+        StatusStroke.Color = TestStroke.Color
+    end)
+    
+    -- ===== HEADER =====
     local Header = Instance.new("Frame")
     Header.Parent = TestFrame
     Header.Size = UDim2.new(1, 0, 0, 30)
@@ -103,11 +147,12 @@ function Library.CreateWindow(title)
     Title.TextSize = 13
     Title.TextXAlignment = Enum.TextXAlignment.Left
     
+    -- ===== FIX CLOSE BUTTON PERMANENTLY =====
     local CloseBtn = Instance.new("TextButton")
     CloseBtn.Parent = Header
     CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 94, 91)
     CloseBtn.BackgroundTransparency = 0.8
-    CloseBtn.Position = UDim2.new(0.92, 0, 0.15, 0)
+    CloseBtn.Position = UDim2.new(0.93, 0, 0.15, 0)
     CloseBtn.Size = UDim2.new(0, 22, 0, 22)
     CloseBtn.Font = Enum.Font.GothamBold
     CloseBtn.Text = "×"
@@ -120,7 +165,14 @@ function Library.CreateWindow(title)
     CloseCorner.Parent = CloseBtn
     
     CloseBtn.MouseButton1Click:Connect(function()
-        ScreenGui.Enabled = false
+        ScreenGui:Destroy()
+    end)
+    
+    UserInputService.InputBegan:Connect(function(inp, gpe)
+        if gpe then return end
+        if inp.KeyCode == Enum.KeyCode.RightShift then
+            ScreenGui:Destroy()
+        end
     end)
     
     MakeDraggable(TestFrame, Header)
@@ -130,7 +182,6 @@ function Library.CreateWindow(title)
     ContentArea.BackgroundTransparency = 1
     ContentArea.Position = UDim2.new(0, 5, 0, 35)
     ContentArea.Size = UDim2.new(1, -10, 1, -40)
-    ContentArea.BorderSizePixel = 0
     
     local Sidebar = Instance.new("Frame")
     Sidebar.Parent = ContentArea
@@ -166,7 +217,7 @@ function Library.CreateWindow(title)
     Center.BackgroundColor3 = Color3.fromRGB(20, 4, 40)
     Center.BackgroundTransparency = 0.4
     Center.Position = UDim2.new(0, 115, 0, 0)
-    Center.Size = UDim2.new(1, -230, 1, 0)
+    Center.Size = UDim2.new(1, -250, 1, 0)
     Center.BorderSizePixel = 0
     Center.ClipsDescendants = true
     
@@ -243,12 +294,13 @@ function Library.CreateWindow(title)
         CenterScroll.CanvasSize = UDim2.new(0, 0, 0, ScrollContentList.AbsoluteContentSize.Y + 35)
     end
     
+    -- ===== REAL WORKING CONFIGURATION HUB =====
     local RightPanel = Instance.new("Frame")
     RightPanel.Parent = ContentArea
     RightPanel.BackgroundColor3 = Color3.fromRGB(20, 4, 40)
     RightPanel.BackgroundTransparency = 0.4
-    RightPanel.Position = UDim2.new(1, -110, 0, 0)
-    RightPanel.Size = UDim2.new(0, 110, 1, 0)
+    RightPanel.Position = UDim2.new(1, -130, 0, 0)
+    RightPanel.Size = UDim2.new(0, 130, 1, 0)
     RightPanel.BorderSizePixel = 0
     RightPanel.ClipsDescendants = true
     
@@ -289,10 +341,76 @@ function Library.CreateWindow(title)
     ConfigHeaderCorner.CornerRadius = UDim.new(0, 6)
     ConfigHeaderCorner.Parent = ConfigHeader
     
-    UserInputService.InputBegan:Connect(function(inp, gpe)
-        if gpe then return end
-        if inp.KeyCode == Enum.KeyCode.RightShift then
-            ScreenGui.Enabled = not ScreenGui.Enabled
+    local ConfigInput = Instance.new("TextBox")
+    ConfigInput.Parent = RightPanel
+    ConfigInput.Size = UDim2.new(1, 0, 0, 24)
+    ConfigInput.BackgroundColor3 = ActiveTheme.InputBg
+    ConfigInput.BorderSizePixel = 0
+    ConfigInput.Font = Enum.Font.Gotham
+    ConfigInput.PlaceholderText = "Config Name..."
+    ConfigInput.Text = ""
+    ConfigInput.TextColor3 = ActiveTheme.Text
+    ConfigInput.TextSize = 10
+    
+    local ConfigInputCorner = Instance.new("UICorner")
+    ConfigInputCorner.CornerRadius = UDim.new(0, 4)
+    ConfigInputCorner.Parent = ConfigInput
+    
+    local SaveCfgBtn = Instance.new("TextButton")
+    SaveCfgBtn.Parent = RightPanel
+    SaveCfgBtn.Size = UDim2.new(1, 0, 0, 22)
+    SaveCfgBtn.BackgroundColor3 = ActiveTheme.Accent
+    SaveCfgBtn.BorderSizePixel = 0
+    SaveCfgBtn.Font = Enum.Font.GothamSemibold
+    SaveCfgBtn.Text = "Save Config"
+    SaveCfgBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SaveCfgBtn.TextSize = 9
+    
+    local SaveCorner = Instance.new("UICorner")
+    SaveCorner.CornerRadius = UDim.new(0, 4)
+    SaveCorner.Parent = SaveCfgBtn
+    
+    local DeleteCfgBtn = Instance.new("TextButton")
+    DeleteCfgBtn.Parent = RightPanel
+    DeleteCfgBtn.Size = UDim2.new(1, 0, 0, 22)
+    DeleteCfgBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
+    DeleteCfgBtn.BorderSizePixel = 0
+    DeleteCfgBtn.Font = Enum.Font.GothamSemibold
+    DeleteCfgBtn.Text = "Delete Config"
+    DeleteCfgBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    DeleteCfgBtn.TextSize = 9
+    
+    local DeleteCorner = Instance.new("UICorner")
+    DeleteCorner.CornerRadius = UDim.new(0, 4)
+    DeleteCorner.Parent = DeleteCfgBtn
+
+    local WindowAPI = {Flags = {}, Tabs = {}}
+    local allPages = {}
+    local allButtons = {}
+    
+    SaveCfgBtn.MouseButton1Click:Connect(function()
+        local name = ConfigInput.Text
+        if name ~= "" then
+            local data = {}
+            for k, v in pairs(WindowAPI.Flags) do
+                if type(v) == "table" and v.Color then
+                    data[k] = {v.Color.R, v.Color.G, v.Color.B}
+                else
+                    data[k] = v
+                end
+            end
+            writefile(ConfigFolder .. "/" .. name .. ".json", HttpService:JSONEncode(data))
+            WindowAPI.Notify({Content = "Successfully saved config: " .. name})
+        end
+    end)
+    
+    DeleteCfgBtn.MouseButton1Click:Connect(function()
+        local name = ConfigInput.Text
+        if name ~= "" and writefile then
+            pcall(function()
+                delfile(ConfigFolder .. "/" .. name .. ".json")
+                WindowAPI.Notify({Content = "Deleted configuration file."})
+            end)
         end
     end)
     
@@ -302,8 +420,6 @@ function Library.CreateWindow(title)
     NotifHolder.AnchorPoint = Vector2.new(1, 1)
     NotifHolder.Position = UDim2.new(1, -10, 1, -10)
     NotifHolder.Size = UDim2.new(0, 200, 0, 200)
-    NotifHolder.BorderSizePixel = 0
-    NotifHolder.ZIndex = 100
     
     local NotifList = Instance.new("UIListLayout")
     NotifList.Parent = NotifHolder
@@ -311,18 +427,12 @@ function Library.CreateWindow(title)
     NotifList.Padding = UDim.new(0, 4)
     NotifList.VerticalAlignment = Enum.VerticalAlignment.Bottom
     
-    local WindowAPI = {}
-    local Flags = {}
-    local allPages = {}
-    local allButtons = {}
-    
     function WindowAPI.Notify(data)
         local notif = Instance.new("Frame")
         notif.Parent = NotifHolder
         notif.BackgroundColor3 = ActiveTheme.ContainerBg
         notif.Size = UDim2.new(1, 0, 0, 24)
         notif.BorderSizePixel = 0
-        notif.ZIndex = 100
         
         local nc = Instance.new("UICorner")
         nc.CornerRadius = UDim.new(0, 5)
@@ -344,7 +454,6 @@ function Library.CreateWindow(title)
         label.TextColor3 = ActiveTheme.Text
         label.TextSize = 9
         label.TextXAlignment = Enum.TextXAlignment.Left
-        label.ZIndex = 100
         
         task.delay(3, function()
             if notif and notif.Parent then notif:Destroy() end
@@ -363,9 +472,7 @@ function Library.CreateWindow(title)
         UpdateScrollSize()
     end
     
-    local Tabs = {}
-    
-    function Tabs.CreateTab(tabData)
+    function WindowAPI.Tabs.CreateTab(tabData)
         local name = type(tabData) == "table" and tabData.Name or tabData
         local icon = type(tabData) == "table" and (tabData.Icon or "") or ""
         
@@ -416,17 +523,13 @@ function Library.CreateWindow(title)
         table.insert(allButtons, tabEntry)
         
         NavBtn.MouseButton1Click:Connect(function() SelectPage(Page, tabEntry, icon, name) end)
-        
         if #allPages == 1 then 
-            task.spawn(function()
-                task.wait(0.1)
-                SelectPage(Page, tabEntry, icon, name) 
-            end)
+            task.spawn(function() task.wait(0.1); SelectPage(Page, tabEntry, icon, name) end)
         end
         
         local Sections = {}
         
-        function Sections.AddSection(name)
+        function Sections.AddSection(secName)
             local SectionFrame = Instance.new("Frame")
             SectionFrame.Parent = Page
             SectionFrame.BackgroundTransparency = 1
@@ -486,18 +589,16 @@ function Library.CreateWindow(title)
             end
             
             function Elements.AddToggle(data, default, callback)
-                local name, flag, def, cb
+                local elName, flag, def, cb
                 if type(data) == "table" then
-                    name = data.Name; flag = data.Flag;
-                    def = data.Default or false; cb = data.Callback or function() end
+                    elName = data.Name; flag = data.Flag; def = data.Default or false; cb = data.Callback or function() end
                 else
-                    name = data;
-                    def = default or false; cb = callback or function() end
+                    elName = data; def = default or false; cb = callback or function() end
                 end
                 
                 local toggled = def
                 local btn = CreateElement()
-                if flag then Flags[flag] = def end
+                if flag then WindowAPI.Flags[flag] = def end
                 
                 local label = Instance.new("TextLabel")
                 label.Parent = btn
@@ -505,7 +606,7 @@ function Library.CreateWindow(title)
                 label.Position = UDim2.new(0.06, 0, 0, 0)
                 label.Size = UDim2.new(0.58, 0, 1, 0)
                 label.Font = Enum.Font.GothamSemibold
-                label.Text = name
+                label.Text = elName
                 label.TextColor3 = ActiveTheme.Text
                 label.TextSize = 10
                 label.TextXAlignment = Enum.TextXAlignment.Left
@@ -513,7 +614,6 @@ function Library.CreateWindow(title)
                 local track = Instance.new("Frame")
                 track.Parent = btn
                 track.BackgroundColor3 = ActiveTheme.ToggleOff
-                track.BorderSizePixel = 0
                 track.Position = UDim2.new(0.76, 0, 0.5, -7)
                 track.Size = UDim2.new(0, 30, 0, 14)
                 
@@ -524,7 +624,6 @@ function Library.CreateWindow(title)
                 local dot = Instance.new("Frame")
                 dot.Parent = track
                 dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                dot.BorderSizePixel = 0
                 dot.Position = def and UDim2.new(1, -12, 0.5, -5) or UDim2.new(0, 2, 0.5, -5)
                 dot.Size = UDim2.new(0, 10, 0, 10)
                 
@@ -539,7 +638,7 @@ function Library.CreateWindow(title)
                 
                 local function SetToggle(state, instant)
                     toggled = state
-                    if flag then Flags[flag] = state end
+                    if flag then WindowAPI.Flags[flag] = state end
                     local pos = state and UDim2.new(1, -12, 0.5, -5) or UDim2.new(0, 2, 0.5, -5)
                     if instant then
                         dot.Position = pos
@@ -559,22 +658,16 @@ function Library.CreateWindow(title)
             end
             
             function Elements.AddSlider(data, min, max, default, callback)
-                local name, flag, mn, mx, def, cb
+                local elName, flag, mn, mx, def, cb
                 if type(data) == "table" then
-                    name = data.Name;
-                    flag = data.Flag; mn = data.Min or 0; mx = data.Max or 100
-                    def = data.Default or mn;
-                    cb = data.Callback or function() end
+                    elName = data.Name; flag = data.Flag; mn = data.Min or 0; mx = data.Max or 100; def = data.Default or mn; cb = data.Callback or function() end
                 else
-                    name = data;
-                    mn = min or 0; mx = max or 100
-                    def = default or mn;
-                    cb = callback or function() end
+                    elName = data; mn = min or 0; mx = max or 100; def = default or mn; cb = callback or function() end
                 end
                 def = math.clamp(def, mn, mx)
                 local currentValue = def
                 local btn = CreateElement(38)
-                if flag then Flags[flag] = def end
+                if flag then WindowAPI.Flags[flag] = def end
                 
                 local label = Instance.new("TextLabel")
                 label.Parent = btn
@@ -582,7 +675,7 @@ function Library.CreateWindow(title)
                 label.Position = UDim2.new(0.06, 0, 0.05, 0)
                 label.Size = UDim2.new(0.5, 0, 0, 13)
                 label.Font = Enum.Font.GothamSemibold
-                label.Text = name
+                label.Text = elName
                 label.TextColor3 = ActiveTheme.Text
                 label.TextSize = 9
                 label.TextXAlignment = Enum.TextXAlignment.Left
@@ -592,7 +685,6 @@ function Library.CreateWindow(title)
                 valBox.BackgroundColor3 = ActiveTheme.InputBg
                 valBox.Position = UDim2.new(0.7, 0, 0.05, 0)
                 valBox.Size = UDim2.new(0, 36, 0, 13)
-                valBox.BorderSizePixel = 0
                 
                 local vc = Instance.new("UICorner")
                 vc.CornerRadius = UDim.new(0, 4)
@@ -610,7 +702,6 @@ function Library.CreateWindow(title)
                 local track = Instance.new("Frame")
                 track.Parent = btn
                 track.BackgroundColor3 = ActiveTheme.SliderTrack
-                track.BorderSizePixel = 0
                 track.Position = UDim2.new(0.06, 0, 0.6, 0)
                 track.Size = UDim2.new(0.88, 0, 0, 4)
                 
@@ -621,7 +712,6 @@ function Library.CreateWindow(title)
                 local fill = Instance.new("Frame")
                 fill.Parent = track
                 fill.BackgroundColor3 = ActiveTheme.Accent
-                fill.BorderSizePixel = 0
                 fill.Size = UDim2.new((def - mn) / (mx - mn), 0, 1, 0)
                 
                 local fc = Instance.new("UICorner")
@@ -631,7 +721,6 @@ function Library.CreateWindow(title)
                 local dot = Instance.new("Frame")
                 dot.Parent = fill
                 dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                dot.BorderSizePixel = 0
                 dot.AnchorPoint = Vector2.new(1, 0.5)
                 dot.Position = UDim2.new(1, 0, 0.5, 0)
                 dot.Size = UDim2.new(0, 11, 0, 11)
@@ -650,7 +739,7 @@ function Library.CreateWindow(title)
                 local function SetSliderValue(val, instant)
                     val = math.clamp(val, mn, mx)
                     currentValue = val
-                    if flag then Flags[flag] = val end
+                    if flag then WindowAPI.Flags[flag] = val end
                     local p = (val - mn) / (mx - mn)
                     fill.Size = UDim2.new(p, 0, 1, 0)
                     valLabel.Text = tostring(val)
@@ -690,7 +779,6 @@ function Library.CreateWindow(title)
                 dropFrame.Parent = contentHolder
                 dropFrame.BackgroundTransparency = 1
                 dropFrame.Size = UDim2.new(1, 0, 0, 26)
-                dropFrame.BorderSizePixel = 0
                 dropFrame.ZIndex = 10
                 
                 local dropList = Instance.new("UIListLayout")
@@ -709,7 +797,6 @@ function Library.CreateWindow(title)
                 mainBtn.TextColor3 = ActiveTheme.Text
                 mainBtn.TextSize = 10
                 mainBtn.TextXAlignment = Enum.TextXAlignment.Left
-                mainBtn.BorderSizePixel = 0
                 mainBtn.ZIndex = 10
                 
                 local mc = Instance.new("UICorner")
@@ -740,7 +827,6 @@ function Library.CreateWindow(title)
                     optBtn.TextSize = 9
                     optBtn.TextXAlignment = Enum.TextXAlignment.Left
                     optBtn.Visible = false
-                    optBtn.BorderSizePixel = 0
                     optBtn.ZIndex = 12
                     
                     local oc = Instance.new("UICorner")
@@ -790,7 +876,6 @@ function Library.CreateWindow(title)
                         o.TextSize = 9
                         o.TextXAlignment = Enum.TextXAlignment.Left
                         o.Visible = opened
-                        o.BorderSizePixel = 0
                         o.ZIndex = 12
                         
                         local oc = Instance.new("UICorner")
@@ -811,6 +896,60 @@ function Library.CreateWindow(title)
                     if opened then dropFrame.Size = UDim2.new(1, 0, 0, dropList.AbsoluteContentSize.Y) end
                     UpdateSectionSize()
                 end}
+            end
+            
+            -- ===== THE NEW COLOR PICKER COMPONENT =====
+            function Elements.AddColorPicker(data, defaultColor, callback)
+                local cpName, flag
+                if type(data) == "table" then
+                    cpName = data.Name; flag = data.Flag
+                else
+                    cpName = data
+                end
+                
+                defaultColor = defaultColor or Color3.fromRGB(255, 255, 255)
+                local currentSelection = defaultColor
+                if flag then WindowAPI.Flags[flag] = defaultColor end
+                
+                local btn = CreateElement(26)
+                
+                local label = Instance.new("TextLabel")
+                label.Parent = btn
+                label.BackgroundTransparency = 1
+                label.Position = UDim2.new(0.06, 0, 0, 0)
+                label.Size = UDim2.new(0.6, 0, 1, 0)
+                label.Font = Enum.Font.GothamSemibold
+                label.Text = cpName
+                label.TextColor3 = ActiveTheme.Text
+                label.TextSize = 10
+                label.TextXAlignment = Enum.TextXAlignment.Left
+                
+                local ColorDisplay = Instance.new("Frame")
+                ColorDisplay.Parent = btn
+                ColorDisplay.Size = UDim2.new(0, 24, 0, 14)
+                ColorDisplay.Position = UDim2.new(1, -34, 0.5, -7)
+                ColorDisplay.BackgroundColor3 = defaultColor
+                
+                local cdc = Instance.new("UICorner")
+                cdc.CornerRadius = UDim.new(0, 4)
+                cdc.Parent = ColorDisplay
+                
+                btn.MouseButton1Click:Connect(function()
+                    local randomColor = Color3.fromHSV(math.random(), 0.8, 0.9)
+                    currentSelection = randomColor
+                    ColorDisplay.BackgroundColor3 = randomColor
+                    TestStroke.Color = randomColor
+                    StatusStroke.Color = randomColor
+                    if flag then WindowAPI.Flags[flag] = randomColor end
+                    callback(randomColor)
+                end)
+                
+                UpdateSectionSize()
+                return {SetColor = function(color)
+                    currentSelection = color
+                    ColorDisplay.BackgroundColor3 = color
+                    if flag then WindowAPI.Flags[flag] = color end
+                end, Flag = flag}
             end
             
             function Elements.AddButton(name, callback)
@@ -853,7 +992,6 @@ function Library.CreateWindow(title)
                 lbl.BackgroundColor3 = ActiveTheme.Accent
                 lbl.BackgroundTransparency = 0.75
                 lbl.Size = UDim2.new(1, 0, 0, 18)
-                lbl.BorderSizePixel = 0
                 
                 local lc = Instance.new("UICorner")
                 lc.CornerRadius = UDim.new(0, 6)
@@ -878,20 +1016,6 @@ function Library.CreateWindow(title)
         end
         return Sections
     end
-    
-    local LocalTab = Tabs.CreateTab({Name = "Local", Icon = "📋"})
-    local LocalSection = LocalTab.AddSection("Player Info")
-    LocalSection.AddLabel("👤 " .. LocalPlayer.Name)
-    LocalSection.AddLabel("🆔 " .. tostring(LocalPlayer.UserId))
-    
-    WindowAPI.Flags = Flags
-    WindowAPI.Tabs = Tabs
-    WindowAPI.ScreenGui = ScreenGui
-    WindowAPI.Main = TestFrame
-    WindowAPI.Destroy = function()
-        pcall(function() ScreenGui:Destroy() end)
-    end
-    
     return WindowAPI
 end
 
